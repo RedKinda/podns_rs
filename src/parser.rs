@@ -8,17 +8,22 @@ pub enum ParserError {
     TrailingCharacters,
     TrailingSlash,
     Empty,
+    // this is error for when tags are not possible due to */! pronoun, but ; is found
+    TagsNotAllowed,
+
+    // catchall
+    InvalidFormat,
 }
 
 enum ParserState {
     BuildingPronounDef { n: u8, trailing_slash: bool },
     BuildingTags,
+    CommentOrEnd,
 }
 
 struct Parser {
     state: ParserState,
     def_builder: Option<PronounSet>,
-    tags: Vec<PronounTag>,
     comment: Option<String>,
 }
 
@@ -26,7 +31,6 @@ impl Default for Parser {
     fn default() -> Self {
         Parser {
             def_builder: None,
-            tags: Vec::new(),
             comment: None,
             state: ParserState::BuildingPronounDef {
                 n: 0,
@@ -129,7 +133,19 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
                         parser.state = ParserState::BuildingTags;
                     }
                     ParserState::BuildingTags => {}
+                    ParserState::CommentOrEnd => {
+                        return Err(ParserError::TagsNotAllowed);
+                    }
                 }
+
+                let builder_set = match &mut parser.def_builder {
+                    Some(set) => set,
+                    None => return Err(ParserError::NotEnoughPronounParts),
+                };
+                let tags = match builder_set {
+                    PronounSet::Defined { tags, .. } => tags,
+                    _ => return Err(ParserError::TagsNotAllowed),
+                };
 
                 // process tag
                 // first skip all `;`s, then skip all whitespace
@@ -140,9 +156,7 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
                     .take_while(|ch| ch != ';' && ch != '#' && !ch.is_whitespace())
                     .to_lowercase();
 
-                parser
-                    .tags
-                    .push(PronounTag::from_string(tag_string).ok_or(ParserError::InvalidTag)?);
+                tags.push(PronounTag::from_string(tag_string).ok_or(ParserError::InvalidTag)?);
 
                 parse_stream.skip_whitespace();
             }
@@ -159,6 +173,7 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
                 parse_stream.next(); // skip the '#'
                 parse_stream.skip_whitespace();
                 parser.comment = Some(parse_stream.collect_remaining().trim_end().to_owned());
+                parser.state = ParserState::CommentOrEnd;
                 break;
             }
             c => match parser.state {
@@ -187,22 +202,24 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
                         _ => {}
                     }
 
-                    let part = parse_stream.take_while(|ch| {
-                        ch != ';' && ch != '#' && ch != '/' && !ch.is_whitespace()
-                    });
+                    let part = parse_stream.take_while(|ch| ch.is_alphanumeric());
 
-                    let pronoun_set = parser.def_builder.get_or_insert_with(|| {
-                        PronounSet::Defined(PronounDef {
-                            subject: String::new(),
-                            object: String::new(),
-                            possessive_determiner: None,
-                            possessive_pronoun: None,
-                            reflexive: None,
-                        })
-                    });
+                    let pronoun_set =
+                        parser
+                            .def_builder
+                            .get_or_insert_with(|| PronounSet::Defined {
+                                definition: PronounDef {
+                                    subject: String::new(),
+                                    object: String::new(),
+                                    possessive_determiner: None,
+                                    possessive_pronoun: None,
+                                    reflexive: None,
+                                },
+                                tags: Vec::new(),
+                            });
 
                     let pronoun_def = match pronoun_set {
-                        PronounSet::Defined(def) => def,
+                        PronounSet::Defined { definition, .. } => definition,
                         _ => return Err(ParserError::TooManyPronounParts),
                     };
 
@@ -234,7 +251,10 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
                     }
                 }
                 ParserState::BuildingTags => {
-                    return Err(ParserError::TrailingCharacters);
+                    return Err(ParserError::InvalidFormat);
+                }
+                ParserState::CommentOrEnd => {
+                    return Err(ParserError::InvalidFormat);
                 }
             },
         }
@@ -251,20 +271,16 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
             }
         }
         ParserState::BuildingTags => {}
+        ParserState::CommentOrEnd => {}
     }
 
-    if parser.def_builder.is_none() && parser.tags.is_empty() && parser.comment.is_none() {
+    if parser.def_builder.is_none() && parser.comment.is_none() {
         return Err(ParserError::Empty);
-    }
-
-    if !parser.tags.is_empty() && parser.def_builder.is_none() {
-        return Err(ParserError::NotEnoughPronounParts);
     }
 
     let record = PronounRecord {
         set: parser.def_builder,
         comment: parser.comment,
-        tags: parser.tags,
     };
 
     Ok(record)
@@ -275,12 +291,11 @@ mod parser_tests {
     use super::{ParserError, PronounRecord, PronounSet, PronounTag, parse_record};
 
     macro_rules! test_case {
-        ($name:ident, $input:expr, $expected_pronoun_set:expr, $expected_tags:expr, $expected_comment:expr) => {
+        ($name:ident, $input:expr, $expected_pronoun_set:expr, $expected_comment:expr) => {
             #[test]
             fn $name() {
                 let record = parse_record($input).unwrap();
                 assert_eq!(record.set, $expected_pronoun_set);
-                assert_eq!(record.tags, $expected_tags);
                 assert_eq!(record.comment, $expected_comment);
             }
         };
@@ -305,11 +320,12 @@ mod parser_tests {
             "her".to_string(),
             None,
             None,
-            None
+            None,
+            vec![],
         )),
-        vec![],
         None
     );
+
     test_case!(
         test_expanded,
         "they/them; preferred; plural # Example comment",
@@ -318,9 +334,9 @@ mod parser_tests {
             "them".to_string(),
             None,
             None,
-            None
+            None,
+            vec![PronounTag::Preferred, PronounTag::Plural],
         )),
-        vec![PronounTag::Preferred, PronounTag::Plural],
         Some("Example comment".to_string())
     );
 
@@ -328,7 +344,6 @@ mod parser_tests {
         test_parse_record_any,
         "* # Any pronouns",
         Some(PronounSet::Any),
-        vec![],
         Some("Any pronouns".to_string())
     );
 
@@ -340,9 +355,9 @@ mod parser_tests {
             "hir".to_string(),
             None,
             None,
-            None
+            None,
+            vec![PronounTag::Preferred],
         )),
-        vec![PronounTag::Preferred],
         Some("Another comment".to_string())
     );
 
@@ -354,9 +369,9 @@ mod parser_tests {
             "xem".to_string(),
             None,
             None,
-            None
+            None,
+            vec![PronounTag::Preferred, PronounTag::Plural],
         )),
-        vec![PronounTag::Preferred, PronounTag::Plural],
         Some("Comment".to_string())
     );
 
@@ -364,7 +379,6 @@ mod parser_tests {
         test_only_comment,
         "# Just a comment",
         None,
-        vec![],
         Some("Just a comment".to_string())
     );
 
@@ -379,7 +393,7 @@ mod parser_tests {
     error_case!(
         test_error_trailing_characters,
         "they/them; preferred extra",
-        ParserError::TrailingCharacters
+        ParserError::InvalidFormat
     );
 
     error_case!(
@@ -428,9 +442,9 @@ mod parser_tests {
             "her".to_string(),
             None,
             None,
-            None
+            None,
+            vec![],
         )),
-        vec![],
         None
     );
 
@@ -442,9 +456,9 @@ mod parser_tests {
             "him".to_string(),
             Some("his".to_string()),
             Some("his".to_string()),
-            Some("himself".to_string())
+            Some("himself".to_string()),
+            vec![PronounTag::Preferred],
         )),
-        vec![PronounTag::Preferred],
         None
     );
 
@@ -456,9 +470,9 @@ mod parser_tests {
             "them".to_string(),
             Some("their".to_string()),
             Some("theirs".to_string()),
-            Some("themself".to_string())
+            Some("themself".to_string()),
+            vec![],
         )),
-        vec![],
         None
     );
 
@@ -470,21 +484,15 @@ mod parser_tests {
             "them".to_string(),
             None,
             None,
-            None
+            None,
+            vec![PronounTag::Preferred, PronounTag::Plural],
         )),
-        vec![PronounTag::Preferred, PronounTag::Plural],
         None
     );
 
-    test_case!(test_rfc_example_5, "*", Some(PronounSet::Any), vec![], None);
+    test_case!(test_rfc_example_5, "*", Some(PronounSet::Any), None);
 
-    test_case!(
-        test_rfc_example_6,
-        "!",
-        Some(PronounSet::None),
-        vec![],
-        None
-    );
+    test_case!(test_rfc_example_6, "!", Some(PronounSet::None), None);
 
     test_case!(
         test_rfc_example_7,
@@ -495,8 +503,8 @@ mod parser_tests {
             Some("zir".to_string()),
             Some("zirself".to_string()),
             None,
+            vec![],
         )),
-        vec![],
         None
     );
 
@@ -515,9 +523,9 @@ mod parser_tests {
             "her".to_string(),
             None,
             None,
-            None
+            None,
+            vec![],
         )),
-        vec![],
         Some("".to_string())
     );
 
@@ -529,9 +537,9 @@ mod parser_tests {
             "her".to_string(),
             None,
             None,
-            None
+            None,
+            vec![],
         )),
-        vec![],
         Some("".to_string())
     );
 
@@ -543,9 +551,9 @@ mod parser_tests {
             "him".to_string(),
             None,
             None,
-            None
+            None,
+            vec![PronounTag::Preferred],
         )),
-        vec![PronounTag::Preferred],
         Some("".to_string())
     );
 

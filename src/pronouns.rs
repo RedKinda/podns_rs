@@ -1,13 +1,15 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PronounRecord {
     pub set: Option<PronounSet>,
-    pub tags: Vec<PronounTag>,
     pub comment: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PronounSet {
-    Defined(PronounDef),
+    Defined {
+        definition: PronounDef,
+        tags: Vec<PronounTag>,
+    },
     /// Represented by * in the TXT record
     Any,
     /// Represented by ! in the TXT record
@@ -31,8 +33,8 @@ pub enum PronounTag {
 }
 
 impl PronounRecord {
-    pub fn new(set: Option<PronounSet>, tags: Vec<PronounTag>, comment: Option<String>) -> Self {
-        PronounRecord { set, tags, comment }
+    pub fn new(set: Option<PronounSet>, comment: Option<String>) -> Self {
+        PronounRecord { set, comment }
     }
 }
 
@@ -43,14 +45,18 @@ impl PronounSet {
         possessive_adjective: Option<String>,
         possessive_pronoun: Option<String>,
         reflexive: Option<String>,
+        tags: Vec<PronounTag>,
     ) -> Self {
-        PronounSet::Defined(PronounDef {
-            subject,
-            object,
-            possessive_determiner: possessive_adjective,
-            possessive_pronoun,
-            reflexive,
-        })
+        PronounSet::Defined {
+            definition: PronounDef {
+                subject,
+                object,
+                possessive_determiner: possessive_adjective,
+                possessive_pronoun,
+                reflexive,
+            },
+            tags,
+        }
     }
 }
 
