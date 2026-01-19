@@ -156,7 +156,11 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
                     .take_while(|ch| ch != ';' && ch != '#' && !ch.is_whitespace())
                     .to_lowercase();
 
-                tags.push(PronounTag::from_string(tag_string).ok_or(ParserError::InvalidTag)?);
+                let tag = PronounTag::from_string(tag_string).ok_or(ParserError::InvalidTag)?;
+                if !tags.contains(&tag) {
+                    // check for duplicates
+                    tags.push(tag);
+                }
 
                 parse_stream.skip_whitespace();
             }
