@@ -5,3 +5,10 @@ edition = "2024"
 
 [dependencies]
 resolve = "0.2.0"
+
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_NetworkManagement_IpHelper",
+] }
