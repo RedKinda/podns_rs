@@ -1,6 +1,6 @@
 [package]
 name = "podns"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "A simple, RFC-compliant Pronouns over DNS resolver helper"
 repository = "https://github.com/RedKinda/podns_rs/"
