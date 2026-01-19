@@ -5,7 +5,7 @@ pub fn query_txt(domain: &str) -> Result<Vec<String>, &'static str> {
         #[cfg(windows)]
         {
             windows::default_dns_config().map_err(|e| {
-                panic!("[debug] Error loading DNS config: {}", e);
+                eprintln!("[debug] Error loading DNS config: {}", e);
                 "Error loading DNS config"
             })?
         }
@@ -63,7 +63,7 @@ mod windows {
         }
 
         // Extract DNS servers
-        let mut nameservers: Vec<std::net::SocketAddr> = Vec::new();
+        let mut nameservers: Vec<std::net::IpAddr> = Vec::new();
         unsafe {
             let fixed = &*fixed_info;
 
@@ -74,7 +74,7 @@ mod windows {
             .to_string_lossy();
 
             if !dns_addr.is_empty() && dns_addr != "0.0.0.0" {
-                if let Ok(addr) = dns_addr.parse::<std::net::SocketAddr>() {
+                if let Ok(addr) = dns_addr.parse::<std::net::IpAddr>() {
                     nameservers.push(addr);
                 }
             }
@@ -87,7 +87,7 @@ mod windows {
                         .to_string_lossy();
 
                 if !dns_addr.is_empty() && dns_addr != "0.0.0.0" {
-                    if let Ok(addr) = dns_addr.parse::<std::net::SocketAddr>() {
+                    if let Ok(addr) = dns_addr.parse::<std::net::IpAddr>() {
                         nameservers.push(addr);
                     }
                 }
@@ -101,6 +101,12 @@ mod windows {
                 "No DNS servers found",
             ));
         }
+
+        // convert IpAddr to SocketAddr with default port 53
+        let nameservers: Vec<std::net::SocketAddr> = nameservers
+            .into_iter()
+            .map(|ip| std::net::SocketAddr::new(ip, 53))
+            .collect();
 
         Ok(DnsConfig::with_name_servers(nameservers))
     }
