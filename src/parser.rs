@@ -291,7 +291,7 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
 
 #[cfg(test)]
 mod parser_tests {
-    use super::{ParserError, PronounRecord, PronounSet, PronounTag, parse_record};
+    use super::{ParserError, PronounSet, PronounTag, parse_record};
 
     macro_rules! test_case {
         ($name:ident, $input:expr, $expected_pronoun_set:expr, $expected_comment:expr) => {
