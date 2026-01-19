@@ -4,14 +4,14 @@ pub fn query_txt(domain: &str) -> Result<Vec<String>, &'static str> {
     let config = {
         #[cfg(windows)]
         {
-            windows::default_dns_config().map_err(|_| "Error loading DNS config")?
-        }
-        #[cfg(not(windows))]
-        {
-            resolve::DnsConfig::load_default().map_err(|e| {
+            windows::default_dns_config().map_err(|e| {
                 panic!("[debug] Error loading DNS config: {}", e);
                 "Error loading DNS config"
             })?
+        }
+        #[cfg(not(windows))]
+        {
+            resolve::DnsConfig::load_default().map_err(|_| "Error loading DNS config")?
         }
     };
 
