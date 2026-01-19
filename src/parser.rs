@@ -203,6 +203,9 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
                     }
 
                     let part = parse_stream.take_while(|ch| ch.is_alphanumeric());
+                    if part.is_empty() {
+                        return Err(ParserError::InvalidFormat);
+                    }
 
                     let pronoun_set =
                         parser
@@ -306,7 +309,11 @@ mod parser_tests {
             #[test]
             fn $name() {
                 let result = parse_record($input);
-                assert!(result.is_err());
+                assert!(
+                    result.is_err(),
+                    "Expected error but got Ok - {:?}",
+                    result.unwrap()
+                );
                 assert_eq!(result.err().unwrap(), $expected_error);
             }
         };
@@ -579,5 +586,18 @@ mod parser_tests {
         test_rfc_error_4,
         "she/her;unknown-tag",
         ParserError::InvalidTag
+    );
+
+    // test for she//her
+    error_case!(
+        test_error_empty_pronoun_part,
+        "she//her",
+        ParserError::InvalidFormat
+    );
+
+    error_case!(
+        test_error_slash_before_any,
+        "/she/her",
+        ParserError::InvalidFormat
     );
 }
