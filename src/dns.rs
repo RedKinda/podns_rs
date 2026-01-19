@@ -1,4 +1,4 @@
-use resolve::{DnsConfig, record::Txt};
+use resolve::record::Txt;
 
 pub fn query_txt(domain: &str) -> Result<Vec<String>, &'static str> {
     let config = {
@@ -8,7 +8,10 @@ pub fn query_txt(domain: &str) -> Result<Vec<String>, &'static str> {
         }
         #[cfg(not(windows))]
         {
-            DnsConfig::load_default().map_err(|_| "Error loading DNS config")?
+            resolve::DnsConfig::load_default().map_err(|e| {
+                eprintln!("[debug] Error loading DNS config: {}", e);
+                "Error loading DNS config"
+            })?
         }
     };
 
