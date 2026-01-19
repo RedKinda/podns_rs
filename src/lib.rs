@@ -10,6 +10,15 @@ pub use parser::parse_record;
 
 #[cfg(feature = "dns_resolve")]
 pub fn resolve_pronouns(domain: &str) -> std::io::Result<Vec<pronouns::PronounRecord>> {
+    // make sure there is a `pronouns.` prefix on the domain
+    let mut domain = domain;
+    let domain_qualified;
+
+    if !domain.starts_with("pronouns.") {
+        domain_qualified = format!("pronouns.{}", domain);
+        domain = &domain_qualified;
+    }
+
     let txt_records = query_txt(domain)?;
 
     let mut pronoun_records = Vec::new();
@@ -22,4 +31,17 @@ pub fn resolve_pronouns(domain: &str) -> std::io::Result<Vec<pronouns::PronounRe
     }
 
     Ok(pronoun_records)
+}
+
+#[cfg(all(test, feature = "dns_resolve"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resolve_pronouns() {
+        let result = resolve_pronouns("kinda.red");
+        assert!(result.is_ok());
+        let result2 = resolve_pronouns("pronouns.kinda.red");
+        assert!(result2.is_ok());
+    }
 }

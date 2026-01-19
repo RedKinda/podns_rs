@@ -116,6 +116,10 @@ mod tests {
     fn test_query_txt() {
         let domain = "pronouns.kinda.red";
         let results = crate::dns::query_txt(domain).expect("Failed to query TXT records");
-        assert!(results.contains(&"she/they".to_string()));
+        assert!(
+            results.contains(&"she/her; preferred".to_string()),
+            "Expected pronoun record not found, got: {:?}",
+            results
+        );
     }
 }
