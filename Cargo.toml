@@ -3,6 +3,11 @@ name = "podns"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "podns"
+path = "src/main.rs"
+required-features = ["dns_resolve"]
+
 [dependencies]
 resolve = { version = "0.2.0", optional = true }
 
