@@ -24,7 +24,7 @@ pub fn query_txt(domain: &str) -> Result<Vec<String>, &'static str> {
         .collect::<Vec<String>>())
 }
 
-// #[cfg(windows)]
+#[cfg(windows)]
 mod windows {
     use std::io;
 
