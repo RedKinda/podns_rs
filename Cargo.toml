@@ -7,6 +7,7 @@ repository = "https://github.com/RedKinda/podns_rs/"
 authors = ["RedKinda <red@kinda.red>"]
 readme = "README.md"
 license = "MIT"
+exclude = ["/.github/*", "/.vscode/*"]
 
 [[bin]]
 name = "podns"
