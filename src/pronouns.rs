@@ -68,6 +68,52 @@ impl Display for PronounSet {
     }
 }
 
+impl PartialOrd for PronounSet {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/*
+first should be preferred over non-preferred
+second should be non-any and non-none
+third should be any over none
+fourth should be lexicographical order of subject, then object
+*/
+impl Ord for PronounSet {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (
+                PronounSet::Defined {
+                    tags: tags_a,
+                    definition: def_a,
+                },
+                PronounSet::Defined {
+                    tags: tags_b,
+                    definition: def_b,
+                },
+            ) => {
+                let a_preferred = tags_a.contains(&PronounTag::Preferred);
+                let b_preferred = tags_b.contains(&PronounTag::Preferred);
+
+                match (a_preferred, b_preferred) {
+                    (true, false) => std::cmp::Ordering::Less,
+                    (false, true) => std::cmp::Ordering::Greater,
+                    _ => def_a
+                        .subject
+                        .cmp(&def_b.subject)
+                        .then_with(|| def_a.object.cmp(&def_b.object)),
+                }
+            }
+            (PronounSet::Defined { .. }, _) => std::cmp::Ordering::Less,
+            (_, PronounSet::Defined { .. }) => std::cmp::Ordering::Greater,
+            (PronounSet::Any, PronounSet::None) => std::cmp::Ordering::Less,
+            (PronounSet::None, PronounSet::Any) => std::cmp::Ordering::Greater,
+            _ => std::cmp::Ordering::Equal,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PronounDef {
     pub subject: String,
