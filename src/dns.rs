@@ -9,7 +9,7 @@ pub fn query_txt(domain: &str) -> Result<Vec<String>, &'static str> {
         #[cfg(not(windows))]
         {
             resolve::DnsConfig::load_default().map_err(|e| {
-                eprintln!("[debug] Error loading DNS config: {}", e);
+                panic!("[debug] Error loading DNS config: {}", e);
                 "Error loading DNS config"
             })?
         }
