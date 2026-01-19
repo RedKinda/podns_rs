@@ -600,4 +600,128 @@ mod parser_tests {
         "/she/her",
         ParserError::InvalidFormat
     );
+
+    /*
+    Passing edge cases:
+    +   #comment
+    +   she/her#comment;plural    (only if the tag isn't parsed)
+    +   #they/them
+    +   they/them;plural#comment
+    +   they/them#comment
+    +   they/them/their;;plural
+    +   she/her;plural;preferred
+     */
+
+    test_case!(
+        test_edge_case_1,
+        "#comment",
+        None,
+        Some("comment".to_string())
+    );
+    test_case!(
+        test_edge_case_2,
+        "she/her#comment;plural",
+        Some(PronounSet::new_defined(
+            "she".to_string(),
+            "her".to_string(),
+            None,
+            None,
+            None,
+            vec![],
+        )),
+        Some("comment;plural".to_string())
+    );
+    test_case!(
+        test_edge_case_3,
+        "#they/them",
+        None,
+        Some("they/them".to_string())
+    );
+    test_case!(
+        test_edge_case_4,
+        "they/them;plural#comment",
+        Some(PronounSet::new_defined(
+            "they".to_string(),
+            "them".to_string(),
+            None,
+            None,
+            None,
+            vec![PronounTag::Plural],
+        )),
+        Some("comment".to_string())
+    );
+    test_case!(
+        test_edge_case_5,
+        "they/them#comment",
+        Some(PronounSet::new_defined(
+            "they".to_string(),
+            "them".to_string(),
+            None,
+            None,
+            None,
+            vec![],
+        )),
+        Some("comment".to_string())
+    );
+    test_case!(
+        test_edge_case_6,
+        "they/them/their;;plural",
+        Some(PronounSet::new_defined(
+            "they".to_string(),
+            "them".to_string(),
+            Some("their".to_string()),
+            None,
+            None,
+            vec![PronounTag::Plural],
+        )),
+        None
+    );
+    test_case!(
+        test_edge_case_7,
+        "she/her;plural;preferred",
+        Some(PronounSet::new_defined(
+            "she".to_string(),
+            "her".to_string(),
+            None,
+            None,
+            None,
+            vec![PronounTag::Plural, PronounTag::Preferred],
+        )),
+        None
+    );
+
+    /*
+    More edge cases:
+    -   ;preferred
+    -   ;preferred;plural
+    -   they/them;
+    -   they/them;notreal
+    -   /they/them
+     */
+
+    error_case!(
+        test_error_tag_without_pronouns_1,
+        ";preferred",
+        ParserError::NotEnoughPronounParts
+    );
+    error_case!(
+        test_error_tag_without_pronouns_2,
+        ";preferred;plural",
+        ParserError::NotEnoughPronounParts
+    );
+    error_case!(
+        test_error_trailing_semicolon,
+        "they/them;",
+        ParserError::InvalidTag
+    );
+    error_case!(
+        test_error_invalid_tag,
+        "they/them;notreal",
+        ParserError::InvalidTag
+    );
+    error_case!(
+        test_error_slash_at_start,
+        "/they/them",
+        ParserError::InvalidFormat
+    );
 }
