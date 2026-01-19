@@ -27,7 +27,9 @@ pub fn resolve_pronouns(domain: &str) -> std::io::Result<Vec<pronouns::PronounRe
     for record in txt_records {
         match parse_record(&record) {
             Ok(pronoun_record) => pronoun_records.push(pronoun_record),
-            Err(_) => continue, // Ignore parsing errors
+            Err(e) => {
+                eprintln!("Warning: Failed to parse record '{}': {:?}", record, e);
+            }
         }
     }
 
