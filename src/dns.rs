@@ -1,25 +1,22 @@
+use std::io;
+
 use resolve::record::Txt;
 
-pub fn query_txt(domain: &str) -> Result<Vec<String>, &'static str> {
+pub fn query_txt(domain: &str) -> io::Result<Vec<String>> {
     let config = {
         #[cfg(windows)]
         {
-            windows::default_dns_config().map_err(|e| {
-                eprintln!("[debug] Error loading DNS config: {}", e);
-                "Error loading DNS config"
-            })?
+            windows::default_dns_config()?
         }
         #[cfg(not(windows))]
         {
-            resolve::DnsConfig::load_default().map_err(|_| "Error loading DNS config")?
+            resolve::DnsConfig::load_default()?
         }
     };
 
-    let resolver = resolve::DnsResolver::new(config).map_err(|_| "Error creating DNS resolver")?;
+    let resolver = resolve::DnsResolver::new(config)?;
 
-    let results = resolver
-        .resolve_record::<Txt>(domain)
-        .map_err(|_| "Error resolving DNS record")?;
+    let results = resolver.resolve_record::<Txt>(domain)?;
 
     Ok(results
         .into_iter()
