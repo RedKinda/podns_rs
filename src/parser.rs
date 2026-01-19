@@ -247,10 +247,7 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
                             trailing_slash: true,
                         };
                     } else {
-                        parser.state = ParserState::BuildingPronounDef {
-                            n: n + 1,
-                            trailing_slash: false,
-                        };
+                        parser.state = ParserState::BuildingTags;
                     }
                 }
                 ParserState::BuildingTags => {
@@ -279,6 +276,12 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
 
     if parser.def_builder.is_none() && parser.comment.is_none() {
         return Err(ParserError::Empty);
+    }
+
+    if let Some(PronounSet::Defined { definition, .. }) = &parser.def_builder
+        && (definition.subject.is_empty() || definition.object.is_empty())
+    {
+        return Err(ParserError::NotEnoughPronounParts);
     }
 
     let record = PronounRecord {
@@ -722,6 +725,12 @@ mod parser_tests {
     error_case!(
         test_error_slash_at_start,
         "/they/them",
+        ParserError::InvalidFormat
+    );
+
+    error_case!(
+        test_error_whitespace_in_pronoun,
+        "she  /h er",
         ParserError::InvalidFormat
     );
 }
