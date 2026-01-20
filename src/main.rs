@@ -47,9 +47,6 @@ fn main() -> Result<(), CliError> {
                 ));
             }
 
-            // make sure records with the "preferred" tag are printed first
-            records.sort_by(|a, b| a.set.cmp(&b.set));
-
             for record in records {
                 println!("{}", record);
             }

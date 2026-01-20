@@ -28,6 +28,26 @@ impl Display for PronounRecord {
     }
 }
 
+impl PartialOrd for PronounRecord {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PronounRecord {
+    // just delegate to PronounSet's Ord implementation, otherwise by comment lexicographically
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (&self.set, &other.set) {
+            (Some(set_a), Some(set_b)) => set_a
+                .cmp(set_b)
+                .then_with(|| self.comment.cmp(&other.comment)),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => self.comment.cmp(&other.comment), // lexicographical order of comments
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PronounSet {
     Defined {

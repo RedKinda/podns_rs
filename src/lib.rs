@@ -22,10 +22,21 @@ pub fn resolve_pronouns(domain: &str) -> std::io::Result<Vec<pronouns::PronounRe
 
     let txt_records = query_txt(domain)?;
 
+    let pronoun_records = parse_records(
+        &txt_records
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<&str>>(),
+    );
+
+    Ok(pronoun_records)
+}
+
+pub fn parse_records(records: &[&str]) -> Vec<pronouns::PronounRecord> {
     let mut pronoun_records = Vec::new();
 
-    for record in txt_records {
-        match parse_record(&record) {
+    for record in records {
+        match parse_record(record) {
             Ok(pronoun_record) => pronoun_records.push(pronoun_record),
             Err(e) => {
                 eprintln!("Warning: Failed to parse record '{}': {:?}", record, e);
@@ -33,7 +44,9 @@ pub fn resolve_pronouns(domain: &str) -> std::io::Result<Vec<pronouns::PronounRe
         }
     }
 
-    Ok(pronoun_records)
+    pronoun_records.sort();
+
+    pronoun_records
 }
 
 #[cfg(all(test, feature = "dns_resolve"))]
