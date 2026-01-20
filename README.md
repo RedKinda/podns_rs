@@ -23,7 +23,7 @@ To use this library in your own Rust project, add the following to your `Cargo.t
 
 ```toml
 [dependencies]
-podns = { version = "0.1.0", features = ["dns_resolve"] }
+podns = { version = "0.1.2", features = ["dns_resolve"] }
 ```
 
 This project includes a simple DNS resolver using the `resolve` crate, but you are encouraged to bring your own.
