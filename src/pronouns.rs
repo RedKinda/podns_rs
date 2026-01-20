@@ -45,13 +45,13 @@ impl Display for PronounSet {
         match self {
             PronounSet::Defined { definition, tags } => {
                 write!(f, "{}/{}", definition.subject, definition.object)?;
-                if let Some(poss_det) = &definition.possessive_determiner {
+                if let Some(poss_det) = &definition.possessive_determiner() {
                     write!(f, "/{}", poss_det)?;
                 }
-                if let Some(poss_pron) = &definition.possessive_pronoun {
+                if let Some(poss_pron) = &definition.possessive_pronoun() {
                     write!(f, "/{}", poss_pron)?;
                 }
-                if let Some(reflexive) = &definition.reflexive {
+                if let Some(reflexive) = &definition.reflexive() {
                     write!(f, "/{}", reflexive)?;
                 }
                 if !tags.is_empty() {
@@ -115,12 +115,157 @@ impl Ord for PronounSet {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CommonPronounDef {
+    Masculine,
+    Feminine,
+    Neuter,
+    TheyThem,
+}
+
+impl CommonPronounDef {
+    pub fn subject(&self) -> &str {
+        match self {
+            CommonPronounDef::Masculine => "he",
+            CommonPronounDef::Feminine => "she",
+            CommonPronounDef::Neuter => "it",
+            CommonPronounDef::TheyThem => "they",
+        }
+    }
+
+    pub fn object(&self) -> &str {
+        match self {
+            CommonPronounDef::Masculine => "him",
+            CommonPronounDef::Feminine => "her",
+            CommonPronounDef::Neuter => "it",
+            CommonPronounDef::TheyThem => "them",
+        }
+    }
+
+    pub fn possessive_determiner(&self) -> &str {
+        match self {
+            CommonPronounDef::Masculine => "his",
+            CommonPronounDef::Feminine => "her",
+            CommonPronounDef::Neuter => "its",
+            CommonPronounDef::TheyThem => "their",
+        }
+    }
+
+    pub fn possessive_pronoun(&self) -> &str {
+        match self {
+            CommonPronounDef::Masculine => "his",
+            CommonPronounDef::Feminine => "hers",
+            CommonPronounDef::Neuter => "its",
+            CommonPronounDef::TheyThem => "theirs",
+        }
+    }
+
+    pub fn reflexive(&self) -> &str {
+        match self {
+            CommonPronounDef::Masculine => "himself",
+            CommonPronounDef::Feminine => "herself",
+            CommonPronounDef::Neuter => "itself",
+            CommonPronounDef::TheyThem => "themself",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PronounDef {
     pub subject: String,
     pub object: String,
     pub possessive_determiner: Option<String>,
     pub possessive_pronoun: Option<String>,
     pub reflexive: Option<String>,
+
+    common_def: Option<CommonPronounDef>,
+}
+
+impl PronounDef {
+    pub fn new(
+        subject: String,
+        object: String,
+        possessive_determiner: Option<String>,
+        possessive_pronoun: Option<String>,
+        reflexive: Option<String>,
+    ) -> Self {
+        let mut def = PronounDef {
+            subject,
+            object,
+            possessive_determiner,
+            possessive_pronoun,
+            reflexive,
+            common_def: None,
+        };
+
+        def.guess_common();
+
+        def
+    }
+
+    pub fn subject(&self) -> &str {
+        &self.subject
+    }
+
+    pub fn object(&self) -> &str {
+        &self.object
+    }
+
+    pub fn possessive_determiner(&self) -> Option<&str> {
+        // either defined, or from common_def
+        self.possessive_determiner.as_deref().or_else(|| {
+            self.common_def
+                .as_ref()
+                .map(|common| common.possessive_determiner())
+        })
+    }
+
+    pub fn possessive_pronoun(&self) -> Option<&str> {
+        self.possessive_pronoun.as_deref().or_else(|| {
+            self.common_def
+                .as_ref()
+                .map(|common| common.possessive_pronoun())
+        })
+    }
+
+    pub fn reflexive(&self) -> Option<&str> {
+        self.reflexive
+            .as_deref()
+            .or_else(|| self.common_def.as_ref().map(|common| common.reflexive()))
+    }
+
+    pub fn common_def(&self) -> Option<&CommonPronounDef> {
+        self.common_def.as_ref()
+    }
+
+    pub(crate) fn guess_common(&mut self) {
+        // if subject+object match, and rest either match or are None, set common_def
+        let common = match (self.subject.as_str(), self.object.as_str()) {
+            ("he", "him") => Some(CommonPronounDef::Masculine),
+            ("she", "her") => Some(CommonPronounDef::Feminine),
+            ("it", "it") => Some(CommonPronounDef::Neuter),
+            ("they", "them") => Some(CommonPronounDef::TheyThem),
+            _ => None,
+        };
+
+        if let Some(common_def) = common {
+            let poss_det_match = match &self.possessive_determiner {
+                Some(pd) => pd == common_def.possessive_determiner(),
+                None => true,
+            };
+            let poss_pron_match = match &self.possessive_pronoun {
+                Some(pp) => pp == common_def.possessive_pronoun(),
+                None => true,
+            };
+            let reflexive_match = match &self.reflexive {
+                Some(r) => r == common_def.reflexive(),
+                None => true,
+            };
+
+            if poss_det_match && poss_pron_match && reflexive_match {
+                self.common_def = Some(common_def);
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -154,14 +299,16 @@ impl PronounSet {
         reflexive: Option<String>,
         tags: Vec<PronounTag>,
     ) -> Self {
+        let def: PronounDef = PronounDef::new(
+            subject,
+            object,
+            possessive_adjective,
+            possessive_pronoun,
+            reflexive,
+        );
+
         PronounSet::Defined {
-            definition: PronounDef {
-                subject,
-                object,
-                possessive_determiner: possessive_adjective,
-                possessive_pronoun,
-                reflexive,
-            },
+            definition: def,
             tags,
         }
     }
@@ -234,5 +381,15 @@ mod tests {
             display,
             "they/them/their/theirs/themself; preferred; plural # These are my pronouns"
         );
+    }
+
+    #[test]
+    fn test_common_def_match() {
+        let def = PronounDef::new("she".to_string(), "her".to_string(), None, None, None);
+
+        assert_eq!(def.common_def(), Some(&CommonPronounDef::Feminine));
+        assert_eq!(def.possessive_determiner(), Some("her"));
+        assert_eq!(def.possessive_pronoun(), Some("hers"));
+        assert_eq!(def.reflexive(), Some("herself"));
     }
 }

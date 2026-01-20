@@ -206,7 +206,10 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
                         _ => {}
                     }
 
-                    let part = parse_stream.take_while(|ch| ch.is_alphanumeric());
+                    let part = parse_stream
+                        .take_while(|ch| ch != '/' && ch != ';' && ch != '#' && ch != '"');
+                    let part = part.trim_end().to_lowercase();
+
                     if part.is_empty() {
                         return Err(ParserError::InvalidFormat);
                     }
@@ -215,13 +218,13 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
                         parser
                             .def_builder
                             .get_or_insert_with(|| PronounSet::Defined {
-                                definition: PronounDef {
-                                    subject: String::new(),
-                                    object: String::new(),
-                                    possessive_determiner: None,
-                                    possessive_pronoun: None,
-                                    reflexive: None,
-                                },
+                                definition: PronounDef::new(
+                                    String::new(),
+                                    String::new(),
+                                    None,
+                                    None,
+                                    None,
+                                ),
                                 tags: Vec::new(),
                             });
 
@@ -239,7 +242,7 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
                         _ => return Err(ParserError::TooManyPronounParts),
                     };
 
-                    part_to_update.push_str(&part.to_lowercase());
+                    part_to_update.push_str(&part);
 
                     parse_stream.skip_whitespace();
                     // take until the next /, then skip whitespace again
@@ -282,10 +285,12 @@ pub fn parse_record(input: &str) -> Result<PronounRecord, ParserError> {
         return Err(ParserError::Empty);
     }
 
-    if let Some(PronounSet::Defined { definition, .. }) = &parser.def_builder
-        && (definition.subject.is_empty() || definition.object.is_empty())
-    {
-        return Err(ParserError::NotEnoughPronounParts);
+    if let Some(PronounSet::Defined { definition, .. }) = parser.def_builder.as_mut() {
+        if definition.subject.is_empty() || definition.object.is_empty() {
+            return Err(ParserError::NotEnoughPronounParts);
+        }
+
+        definition.guess_common();
     }
 
     let record = PronounRecord {
@@ -697,6 +702,36 @@ mod parser_tests {
         None
     );
 
+    // test that pronouns with spaces are valid
+    test_case!(
+        test_edge_case_8,
+        "this one/that one",
+        Some(PronounSet::new_defined(
+            "this one".to_string(),
+            "that one".to_string(),
+            None,
+            None,
+            None,
+            vec![],
+        )),
+        None
+    );
+
+    // `'` is a valid character in pronoun parts
+    test_case!(
+        test_edge_case_9,
+        "he/him/his/his/himself's",
+        Some(PronounSet::new_defined(
+            "he".to_string(),
+            "him".to_string(),
+            Some("his".to_string()),
+            Some("his".to_string()),
+            Some("himself's".to_string()),
+            vec![],
+        )),
+        None
+    );
+
     /*
     More edge cases:
     -   ;preferred
@@ -732,9 +767,10 @@ mod parser_tests {
         ParserError::InvalidFormat
     );
 
+    // ensure that `"` is not a valid character in pronoun parts
     error_case!(
-        test_error_whitespace_in_pronoun,
-        "she  /h er",
+        test_error_invalid_character_quote,
+        "this\"one/that one",
         ParserError::InvalidFormat
     );
 }

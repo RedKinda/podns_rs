@@ -7,7 +7,7 @@ pub mod pronouns;
 pub use dns::query_txt;
 
 pub use parser::{ParserError, parse_record};
-pub use pronouns::{PronounDef, PronounRecord, PronounSet, PronounTag};
+pub use pronouns::{CommonPronounDef, PronounDef, PronounRecord, PronounSet, PronounTag};
 
 #[cfg(feature = "dns_resolve")]
 pub fn resolve_pronouns(domain: &str) -> std::io::Result<Vec<pronouns::PronounRecord>> {
