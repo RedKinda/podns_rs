@@ -333,8 +333,8 @@ mod tests {
     fn test_basic() {
         let record = PronounRecord::new(
             Some(PronounSet::new_defined(
-                "he".to_string(),
-                "him".to_string(),
+                "ze".to_string(),
+                "hir".to_string(),
                 None,
                 None,
                 None,
@@ -343,7 +343,7 @@ mod tests {
             None,
         );
         let display = format!("{}", record);
-        assert_eq!(display, "he/him");
+        assert_eq!(display, "ze/hir");
     }
 
     #[test]
